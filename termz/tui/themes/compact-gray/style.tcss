@@ -1,0 +1,175 @@
+* {
+    scrollbar-background: $panel;
+}
+
+.text-area--cursor, .input--cursor {
+    color: #80e98c;
+}
+
+ToggleButton, CustomCheckbox {
+    background: $panel;
+    margin: 0;
+}
+
+ToggleButton, SelectionList {
+    /* Not-selected items */
+    & > .toggle--button,
+    & > .selection-list--button, & > .selection-list--button-highlighted {
+        background: $secondary;
+    }
+
+    /* Selected items */
+    &.-on > .toggle--button,
+    & > .selection-list--button-selected,
+    & > .selection-list--button-selected-highlighted {
+        background: $success-muted !important;
+        color: $success !important;
+    }
+}
+
+RadioButton {
+    /* Not-selected items */
+    & > .toggle--button,
+    & > .selection-list--button, & > .selection-list--button-highlighted {
+        color: $secondary !important;
+        background: $surface-lighten-1 !important;
+    }
+
+    /* Selected items */
+    &.-on > .toggle--button,
+    & > .selection-list--button-selected,
+    & > .selection-list--button-selected-highlighted {
+        background: $success-muted !important;
+        color: $success !important;
+    }
+}
+
+Switch {
+    margin: 0;
+    & .switch--slider { color: $primary; background: $secondary; }
+    &.-on .switch--slider { color: $success }
+    &:hover {
+        & > .switch--slider { color: $primary-lighten-2 }
+        &.-on > .switch--slider { color: $success-lighten-2 }
+    }
+}
+
+CustomCheckbox {
+    margin: 0;
+}
+
+Label.section-title {
+    # margin: 0 1 0 1;
+}
+
+Container.section {
+    background: $background-lighten-1;
+    border: none;
+    margin: 1 1 0 1;
+    padding: 1;
+}
+
+Button {
+    border: hidden;
+    padding: 0;
+    margin: 1;
+    height: auto;
+}
+
+Input, Select {
+    background: $surface;
+    border: hidden;
+    padding: 0;
+    margin: 0;
+    height: auto;
+}
+
+TextArea, RadioSet, SelectionList, CustomSelectionList {
+    background: $surface;
+    border: hidden;
+    padding: 0;
+    margin: 0;
+    height: 3;
+}
+
+RadioButton {
+    background: $surface;
+}
+
+Option {
+    color: red;
+    height: 1;
+    padding: 0;
+    border: hidden;
+    margin: 1;
+}
+
+Select SelectCurrent {
+    border: none;
+    padding: 0;
+    margin: 0;
+    height: 1;
+}
+
+Select SelectOverlay, Select SelectOverlay > .option-list--option {
+    border: hidden;
+    margin: 0 0 0 0;
+    padding: 0;
+}
+
+ListView, Tree, TabbedContent, DataTable, Placeholder {
+    margin: 0;
+}
+
+.example-section ProgressBar {
+    margin-bottom: 1;
+}
+
+Label.example-spacer {
+    display: none;
+}
+
+.margin-1 {
+    margin: 1;
+}
+
+.no-vertical-margin {
+    margin-top: 0;
+    margin-bottom: 0;
+}
+
+.example-input-caption {
+    display: block;
+    margin: 0 0 0 0;
+}
+
+Input.example-input {
+    margin: 0 0 1 0;
+}
+
+Select.example-input {
+    # margin: 0 1 1 1;
+}
+
+.example-section Button {
+    margin-right: 1;
+}
+.example-section Button:last-of-type {
+    margin-right: 0;
+}
+
+.example-section Switch, .example-section CustomCheckbox {
+    margin: 1 0 0 0 ;
+}
+
+.example-section Digits {
+    margin: 1 0 0 0;
+}
+
+# .example-section Rule {
+#     margin: 1 0 0 0;
+# }
+
+Static.example {
+    margin: 1 0;
+}
