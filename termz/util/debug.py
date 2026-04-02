@@ -40,12 +40,15 @@ Measuring execution time of a function
 """
 
 import time
+from collections.abc import Callable
 from functools import wraps
-from typing import Any
-from typing import Callable
+from typing import ParamSpec, TypeVar
+
+P = ParamSpec('P')
+R = TypeVar('R')
 
 
-def print_arguments(fn: Callable) -> Callable:
+def print_arguments(fn: Callable[P, R]) -> Callable[P, R]:
     """
     A decorator that prints the arguments, keyword arguments, function name
     and return value each time the decorated function is called.
@@ -61,20 +64,20 @@ def print_arguments(fn: Callable) -> Callable:
         A wrapper function that adds debugging output.
     """
     @wraps(fn)  # Without this fn.__name__ would be empty
-    def wrapper(*args: Any, **kwargs: Any) -> Any:
+    def wrapper(*args: P.args, **kwargs: P.kwargs) -> R:
         """
         Wrapper function that prints the function's arguments and return value.
 
         Parameters
         ----------
-        *args : Any
+        *args : P.args
             Positional arguments.
-        **kwargs : Any
+        **kwargs : P.kwargs
             Keyword arguments.
 
         Returns
         -------
-        Any
+        R
             The original return value of the decorated function.
         """
         # Print function name + args and kwargs
@@ -93,7 +96,7 @@ def print_arguments(fn: Callable) -> Callable:
     return wrapper
 
 
-def timing(use_ns_timer: bool = False) -> Callable:
+def timing(use_ns_timer: bool = False) -> Callable[[Callable[P, R]], Callable[P, R]]:
     """
     A decorator factory that measures the execution time of the decorated
     function.
@@ -119,7 +122,7 @@ def timing(use_ns_timer: bool = False) -> Callable:
         time_fn = time.perf_counter  # type: ignore
         time_scale = 's'
 
-    def wrap_with_timing(fn: Callable) -> Callable:
+    def wrap_with_timing(fn: Callable[P, R]) -> Callable[P, R]:
         """
         Wrapper function that measures and prints the execution time of the
         decorated function.
@@ -135,20 +138,20 @@ def timing(use_ns_timer: bool = False) -> Callable:
             A wrapped version of the function with timing logic.
         """
         @wraps(fn)
-        def timer(*args: Any, **kwargs: Any) -> Any:
+        def timer(*args: P.args, **kwargs: P.kwargs) -> R:
             """
             Measures the execution time of the function call.
 
             Parameters
             ----------
-            *args : Any
+            *args : P.args
                 Positional arguments.
-            **kwargs : Any
+            **kwargs : P.kwargs
                 Keyword arguments.
 
             Returns
             -------
-            Any
+            R
                 The original return value of the decorated function.
             """
             # Store start time

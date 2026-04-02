@@ -33,7 +33,7 @@ def linewrap(text: str, linewidth: int):
     str
         A string with lines separated by line breaks (\n).
     """
-    lines = []
+    lines: list[str] = []
     while len(text) > 0:
         # Cut the maximum portion out of the given string
         maxcutpos = min(linewidth, len(text))

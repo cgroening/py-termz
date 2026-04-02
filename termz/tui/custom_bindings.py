@@ -24,8 +24,6 @@ Intended for use in modular or tabbed interfaces, this system helps keep key
 binding logic centralized and configurable without hard-coding values into
 application logic.
 """
-import logging  # noqa
-import pprint   # noqa
 import re
 import yaml
 
@@ -73,7 +71,7 @@ class CustomBindings():
 
     Attributes
     ----------
-    YAML_FILE : str
+    yaml_file_path : str
         Path to the YAML file containing key bindings.
     sort_alphabetically : bool
         Whether to sort bindings alphabetically by key.
@@ -87,7 +85,7 @@ class CustomBindings():
     global_actions : list[str]
         List of actions that are always shown globally.
     """
-    YAML_FILE: str
+    yaml_file_path: str
     sort_alphabetically: bool = False
     bindings_dict_raw: dict[str, list[dict[str, str]]]
     bindings_dict: dict[str, list[Binding]] = {}
@@ -114,7 +112,7 @@ class CustomBindings():
             Whether to add copy/paste key bindings
             (F1-F4) to the global group.
         """
-        self.YAML_FILE = yaml_file
+        self.yaml_file_path = yaml_file
         self.sort_alphabetically = sort_alphabetically
         self.read_yaml_file()
         self.process_bindings()
@@ -127,7 +125,7 @@ class CustomBindings():
         """
         Loads the binding definitions from the YAML file into a dictionary.
         """
-        with open(self.YAML_FILE, 'r', encoding='utf-8') as file:
+        with open(self.yaml_file_path, 'r', encoding='utf-8') as file:
             self.bindings_dict_raw = yaml.safe_load(file)
 
     def process_bindings(self):
@@ -142,9 +140,6 @@ class CustomBindings():
         for group, bindings in self.bindings_dict_raw.items():
             if group not in self.bindings_dict:
                 self.bindings_dict[group] = []
-
-            if not isinstance(bindings, list):
-                continue
 
             # Loop bindings
             for binding in bindings:
@@ -327,7 +322,7 @@ class CustomBindings():
 
         return bindings_list
 
-    def handle_copy_widget_value_to_clipboard(self, app) -> None:
+    def handle_copy_widget_value_to_clipboard(self, app: App[object]) -> None:
         """
         Copies value of the currently focused input widget to the clipboard.
 
@@ -338,16 +333,18 @@ class CustomBindings():
         """
         focused_widget = app.focused
 
-        if hasattr(focused_widget, 'value'):
-            app.copy_to_clipboard(focused_widget.value)
-        elif hasattr(focused_widget, 'text'):
-            app.copy_to_clipboard(focused_widget.text)
-        else:
+        if focused_widget is None:
             return
 
+        value: str = getattr(focused_widget, 'value', None) \
+                     or getattr(focused_widget, 'text', '')
+        if not value:
+            return
+
+        app.copy_to_clipboard(value)
         app.notify('Value copied to clipboard!')
 
-    def handle_copy_selection_to_clipboard_action(self, app: App):
+    def handle_copy_selection_to_clipboard_action(self, app: App[object]):
         """
         Copies the selected text from the currently focused input widget to
         the clipboard.
@@ -359,12 +356,16 @@ class CustomBindings():
         """
         focused_widget: Widget | None = app.focused
 
-        if hasattr(focused_widget, 'selected_text'):
-            app.copy_to_clipboard(focused_widget.selected_text)  # type: ignore
+        if focused_widget is None:
+            return
+
+        selected_text: str = getattr(focused_widget, 'selected_text', '')
+        if selected_text:
+            app.copy_to_clipboard(selected_text)
 
         app.notify('Selection copied to clipboard!')
 
-    def handle_paste_from_clipboard(self, app: App, replace: bool = False) \
+    def handle_paste_from_clipboard(self, app: App[object], replace: bool = False) \
     -> None:
         """
         Pastes the text from the clipboard to the currently focused input
@@ -403,8 +404,9 @@ class CustomBindings():
             app.notify('Focused widget does not support pasting text.',
                        severity='warning')
 
-    def paste_into_input(self, app, input: Input, text: str, replace: bool) \
-    -> None:
+    def paste_into_input(
+        self, app: App[object], input: Input, text: str, replace: bool
+    ) -> None:
         """
         Pastes the given text into the input widget at the cursor position.
 
@@ -429,7 +431,7 @@ class CustomBindings():
 
         app.notify('Text pasted into input field!')
 
-    def paste_into_textarea(self, app, textarea: TextArea, text: str,
+    def paste_into_textarea(self, app: App[object], textarea: TextArea, text: str,
                             replace: bool) -> None:
         """
         Pastes the given text into the textarea at the cursor position.
@@ -455,7 +457,7 @@ class CustomBindings():
 
         app.notify('Text pasted into text area!')
 
-    def handle_check_action(self, action: str, parameters: tuple[object, ...],
+    def handle_check_action(self, action: str, _parameters: tuple[object, ...],
                             active_group: str, show_global_keys: bool = False) \
     -> bool | None:
         """
@@ -516,7 +518,7 @@ class CustomBindings():
         """
         return action in self.global_actions
 
-    def is_custom_action(self, action: str, group: str) -> bool:
+    def is_custom_action(self, action: str, _group: str) -> bool:
         """
         Checks if the given action is a custom action defined in the bindings.
 
@@ -556,7 +558,7 @@ class CustomBindings():
         return key
 
     def parse_action(self, action: str | None, group: str) -> str | None:
-        if action is None or group is None:
+        if action is None:
             return None
         else:
             if group.startswith('_screen_'):

@@ -100,7 +100,7 @@ class QuestionScreen(ModalScreen[bool]):
         """
         Closes the modal popup.
         """
-        self.app.pop_screen()
+        self.dismiss(False)
 
     @on(Button.Pressed, '#yes')
     def handle_yes(self) -> None:

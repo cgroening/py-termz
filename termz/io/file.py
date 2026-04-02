@@ -3,7 +3,8 @@
 termz.io.file
 =============
 
-This module provides functionality for reading, writing, and managing text files efficiently.
+This module provides functionality for reading, writing and managing text
+files efficiently.
 
 It offers a simple and lightweight interface for handling
 text-based file operations.

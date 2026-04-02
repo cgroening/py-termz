@@ -20,7 +20,7 @@ formatting ("YYYY-MM-DD") for flexibility in various locales.
 from datetime import datetime, time
 
 
-def timestamp_to_date(timestamp: int, english_format: bool = False) -> str:
+def timestamp_to_date(timestamp: int | None, english_format: bool = False) -> str:
     """
     Converts a UNIX timestamp into a date string.
 
@@ -38,8 +38,8 @@ def timestamp_to_date(timestamp: int, english_format: bool = False) -> str:
         Date string in the format "DD.MM.YYYY" or "YYYY-MM-DD".
         Empty string if the given timestamp is None.
     """
-    # Return empty string if the given timestamp is None or not an integer
-    if timestamp is None or not isinstance(timestamp, int):
+    # Return empty string if the given timestamp is None
+    if timestamp is None:
         return ''
 
     # Convert timestamp to date
@@ -142,8 +142,8 @@ def today_date(english_format: bool = False) -> str:
         Date string in the format "DD.MM.YYYY" or "YYYY-MM-DD".
         Empty string if the given timestamp is None.
     """
-    today = DateTime.today_timestamp()
-    today_str = DateTime.timestamp_to_date(today, english_format)
+    today = today_timestamp()
+    today_str = timestamp_to_date(today, english_format)
 
     return today_str
 

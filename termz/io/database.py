@@ -10,6 +10,7 @@ records. It includes classes for defining query conditions, sorting orders
 and combination operators to facilitate SQL query construction.
 
 Features:
+
 - Establish and manage SQLite database connections
 - Query execution with debugging support
 - Fetching data with filtering, ordering, and pagination
@@ -25,7 +26,8 @@ from dataclasses import dataclass
 import sqlite3
 import copy
 from enum import Enum
-from typing import Any
+from types import TracebackType
+from typing import cast
 from termz.util.string import linewrap
 
 
@@ -155,9 +157,15 @@ class Database:
         """
         return self
 
-    def __exit__(self, exc_type, exc_value, traceback) -> None:
+    def __exit__(
+        self,
+        exc_type: type[BaseException] | None,
+        exc_value: BaseException | None,
+        traceback: TracebackType | None
+    ) -> None:
         """
-        Ensures that the database connection is closed when exiting a `with` block.
+        Ensures that the database connection is closed when exiting
+        a `with` block.
 
         Parameters
         ----------
@@ -200,7 +208,7 @@ class Database:
             The cursor.
         """
         if self.debug_mode:
-            print(String.linewrap(sql, 60))
+            print(linewrap(sql, 60))
         cursor = self.cursor.execute(sql)
 
         return cursor
@@ -213,7 +221,7 @@ class Database:
             orderby: list[ColumnOrder] | None = None,
             limit: int | None = None,
             offset: int | None = None
-    ) -> list[dict[str, Any]]:
+    ) -> list[dict[str, str | int | float | bytes | None]]:
         """
         Fetches entries from a table.
 
@@ -283,13 +291,13 @@ class Database:
         self.query(sql)
 
         # Return a list of dictionaries (one for each row)
-        rows = self.cursor.fetchall()
+        rows: list[sqlite3.Row] = self.cursor.fetchall()
         result = [dict(row) for row in rows]
 
         return result
 
     def insert(self, table: str, data: list[dict[str, object]]) \
-    -> list[dict[str, object]]:
+    -> list[dict[str, str | int | float | bytes | None]]:
         """
         Inserts rows into the table.
 
@@ -303,11 +311,11 @@ class Database:
 
         Returns
         -------
-        list[dict[str, object]]
+        list[dict[str, str | int | float | bytes | None]]
             List of dictionaries containing the inserted rows, e.g.:
             [{'id': 1, 'col1': 'val1', 'col2': 'val2'}, ...]
         """
-        inserted: list[dict[str, object]] = []
+        inserted: list[dict[str, str | int | float | bytes | None]] = []
 
         # Loop rows in data
         for row in data:
@@ -381,7 +389,7 @@ class Database:
             for col, val in row.items():
                 if col[0] == '@':
                     # Get conditions for this row and remove them from data dict
-                    conditions = val  # type: ignore
+                    conditions = cast(list[Condition], val)
                     del data[i][col]
 
             # Loop columns in row (again, without entry for conditions)

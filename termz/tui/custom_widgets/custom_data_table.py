@@ -22,14 +22,18 @@ layout accordingly.
 This is particularly useful for applications with tabular data in dynamic
 layouts or where users resize windows and expect columns to adapt gracefully.
 """
+from typing import TypeVar
+
 from textual.message import Message
 from textual.widget import Widget
 from textual.widgets import DataTable
+from textual.coordinate import Coordinate
 from textual.widgets._data_table import ColumnKey, Column
-import logging
+
+_CellType = TypeVar('_CellType')
 
 
-class CustomDataTable(DataTable):
+class CustomDataTable(DataTable[_CellType]):
     """
     CustomDataTable is a subclass of DataTable that provides additional functionality for handling flexible column widths and resizing.
 
@@ -51,8 +55,8 @@ class CustomDataTable(DataTable):
             self.sender = sender
 
 
-    def __init__(self, **kwargs):
-        super().__init__(**kwargs)
+    def __init__(self, **kwargs):  # pyright:ignore[reportUnknownParameterType, reportMissingParameterType]
+        super().__init__(**kwargs)  # pyright:ignore[reportUnknownArgumentType]
 
 
     def on_mount(self) -> None:
@@ -205,7 +209,7 @@ class CustomDataTable(DataTable):
             return
 
         # Set cursor to first row
-        self.cursor_coordinate = (0, 0)
+        self.cursor_coordinate = Coordinate(0, 0)
         self.move_cursor(row=0, column=0)  # Same as above, just to be sure
 
         # Manually post RowHighlighted event
@@ -218,7 +222,7 @@ class CustomDataTable(DataTable):
         """
         Deletes the currently selected row from the table.
         """
-        if self.cursor_row is not None:
+        if self.row_count > 0:
             row_key, _ = self.coordinate_to_cell_key(self.cursor_coordinate)
             self.remove_row(row_key)
 

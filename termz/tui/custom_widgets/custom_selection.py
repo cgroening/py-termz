@@ -1,10 +1,14 @@
+from typing import TypeVar
+
 from textual.widgets import SelectionList
 from textual.widgets._toggle_button import ToggleButton
 from textual.strip import Strip
 from rich.segment import Segment
 
+_SelectionType = TypeVar('_SelectionType')
 
-class CustomSelectionList(SelectionList):
+
+class CustomSelectionList(SelectionList[_SelectionType]):
     """
     A custom Textual SelectionList whose items display a check mark when selected.
 
@@ -19,8 +23,8 @@ class CustomSelectionList(SelectionList):
     CUSTOM_BUTTON_INNER = '✔'
 
 
-    def __init__(self, *args, **kwargs) -> None:
-        super().__init__(*args, **kwargs)
+    def __init__(self, *args, **kwargs) -> None:  # pyright:ignore[reportUnknownParameterType, reportMissingParameterType]
+        super().__init__(*args, **kwargs)  # pyright:ignore[reportUnknownArgumentType]
 
     def render_line(self, y: int) -> Strip:
         """
