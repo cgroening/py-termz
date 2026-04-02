@@ -3,235 +3,166 @@ termz.io.app_state_storage
 ==========================
 
 A simple JSON-based storage system that allows reading, writing and modifying
-key-value pairs in a JSON file. It ensures data persistence across sessions
-and provides utility functions for handling lists within the JSON structure.
-
-The class AppStorage provides an easy-to-use interface for managing application
-settings or any structured data in a JSON file. It follows a singleton pattern
-to ensure a single instance across the application.
+key-value pairs in a JSON file. This is useful for persisting application states
+like the last scroll position or command history. The class `AppStateStorage`
+follows a singleton pattern to ensure a single instance across the application.
 
 Features:
+
 - Reads a JSON file and loads its content into a dictionary.
 - Provides methods to retrieve (`get`) and update (`set`) key-value pairs.
 - Supports modifying lists within the JSON file, including:
-  - Inserting elements at a specific index (`array_insert`).
-  - Editing individual elements within a list (`edit_array_item`).
-  - Deleting elements from a list (`delete_array_item`).
-  - Moving elements within a list (`move_array_item`).
+  - Inserting elements at a specific index (`list_insert`)
+  - Editing individual elements within a list (`edit_list_item`)
+  - Deleting elements from a list (`delete_list_item`)
+  - Moving elements within a list (`move_list_item`)
 - Ensures data persistence by saving changes to the JSON file automatically.
 - Manages file creation and error handling for missing or corrupted JSON files.
 
-This module is useful for applications requiring persistent storage of
-configuration settings, user preferences or structured data that does not
-require a full-fledged database.
-
 """
-
-# Libs
 import sys
 import json
 import os
 from pathlib import Path
-
+from typing import cast
 from termz.util.singleton import Singleton
 
 
 class AppStateStorage(metaclass=Singleton):
     """
-    This class opens a JSON file and saves the content in a dictionary which can be accessed with get().
+    This class opens a JSON file and saves the content in a dictionary which can
+    be accessed with `get()`.
 
-    Changed values or new key-value pairs can be stored
-    within the Dictionary and the JSON file with the method set().
+    Changed values or new key-value pairs can be stored within the Dictionary
+    and the JSON file with the method `set()`.
 
     Attributes
     ----------
     json_file : Path or str or None
         Path to the JSON file.
-    json_dict : dict[str, str | int | float | bool | list[dict]]
+    json_dict : dict[str, object]
         Content of the JSON file as a dictionary.
     """
-    json_file: Path | str | None
-    json_dict: dict[str, str | int | float | bool | list[dict]] = {}
+    json_file_path: Path | str | None
+    _json_dict: dict[str, object] = {}
 
 
     def __init__(self, cfg_file: Path | str | None = None) -> None:
         """
-        Opens the JSON file and stores the key-value pairs in self.json_dict.
+        Opens the JSON file and stores the key-value pairs in `self.json_dict`.
 
-        Parameters
-        ----------
-        cfg_file : Path or str or None, optional
-            Path to the JSON file.
+        Raises
+        ------
+        Exception
+            If no JSON file is given and the class instance is None.
         """
-        # Raise error if class instance is None and no file path is given
         if AppStateStorage.instance is None and cfg_file is None:
             raise Exception('No JSON file given.')
+        self.json_file_path = cfg_file
+        self._read_json_file()
 
-        # Store path the JSON file
-        self.json_file = cfg_file
-
-
-        # Open JSON file
-        self.read_json_file()
-
-    def read_json_file(self) -> None:
+    def _read_json_file(self) -> None:
         """
-        Opens the JSON file and stores the content in self.json_dict.
-        """
-        abs_path = os.path.abspath(self.json_file)  # type: ignore
+        Opens the JSON file and stores the content in `self.json_dict`.
 
-        # Open file
+        Raises
+        ------
+        FileNotFoundError
+            If the JSON file cannot be found and cannot be created.
+        json.JSONDecodeError
+            If the JSON file contains invalid JSON.
+        """
+        if self.json_file_path is None:
+            raise Exception('No JSON file given.')
+        abs_path = os.path.abspath(self.json_file_path)
+
         try:
-            # Store key-value pairs
-            with open(self.json_file, encoding='utf-8') as file:  # type: ignore
-                self.json_dict = json.load(file)
+            with open(self.json_file_path, encoding='utf-8') as file:
+                self._json_dict = json.load(file)
         except FileNotFoundError:
             # File not found -> try to create a new one
             try:
-                with open(self.json_file, 'w') as file:  # type: ignore
-                    file.write('{}')
+                with open(self.json_file_path, 'w') as file:
+                    _ = file.write('{}')
             except FileNotFoundError:
-                print('ERROR: Could not find or create JSON file '
-                      f'"{abs_path}".')
+                print(f'ERROR: Could not find or create "{abs_path}".')
                 sys.exit()
         except json.JSONDecodeError:
-            # File has JSON errors
             print(f'Error: File "{abs_path}" contains invalid JSON.')
             sys.exit()
 
-    def save_json_file(self) -> None:
-        """
-        Stores the content of self.json_dict in the JSON file.
-        """
-        abs_path = os.path.abspath(self.json_file)  # type: ignore
+    def _save_json_file(self) -> None:
+        """Stores the content of self.json_dict in the JSON file."""
+        if self.json_file_path is None:
+            raise Exception('No JSON file given.')
+        abs_path = os.path.abspath(self.json_file_path)
 
         try:
-            with open(self.json_file, 'w', encoding='utf-8') as file:  # type: ignore
-                json.dump(self.json_dict, file, indent=4)  # noqa
+            with open(self.json_file_path, 'w', encoding='utf-8') as file:
+                json.dump(self._json_dict, file, indent=4)
         except IOError:
             print(f'Fehler: File {abs_path} could not be written.')
 
-    def get(self, key: str, default_value: object = None) \
-            -> str | int | float | bool | list | dict | None:
+    def get(self, key: str, default_value: object = None) -> object | None:
         """
         Returns a value from the JSON file.
-
-        If the given key cannot be found
-        the default value specified will be returned.
-
-        Parameters
-        ----------
-        key : str
-            Key of the entry.
-        default_value : object, optional
-            Default value.
-
-        Returns
-        -------
-        str or int or float or bool or list or dict or None
-            The value belonging to the given key.
+        If the given key cannot be found the given default value is returned.
         """
-        if key in self.json_dict:
-            return self.json_dict[key]
+        if key in self._json_dict:
+            return self._json_dict[key]
         else:
             return default_value  # type: ignore
 
-    def set(self, key: str,
-            value: str | int | float | bool | list | dict) -> None:
-        """
-        Updates the dictionary self.json_dict and stores the given key-value pair in the JSON file.
+    def set(self, key: str, value: object) -> None:
+        """Saves a key-value pair in the JSON file."""
+        self._json_dict.update({key: value})
+        self._save_json_file()
 
-        Parameters
-        ----------
-        key : str
-            Key of the entry.
-        value : str or int or float or bool or list or dict
-            Value of the entry.
-        """
-        self.json_dict.update({key: value})    # type: ignore
-        self.save_json_file()
+    def list_insert(
+        self, list_name: str, list_index: int, value: object
+    ) -> None:
+        """Adds a new entry to a list at the given index."""
+        # Create list if it doesn't exist
+        if list_name not in self._json_dict:
+            self._json_dict.update({list_name: []})
 
-    def array_insert(self, array_name: str, array_index: int,
-                     value: str | int | float | list | dict) -> None:
-        """
-        Adds a new entry to an array/list at the given index.
-
-        Parameters
-        ----------
-        array_name : str
-            Name of the array/list.
-        array_index : int
-            Index of the array/list element.
-        value : str or int or float or list or dict
-            Value of the array/list element = dictionary.
-        """
-        # Create array/list if it doesn't exist
-        if array_name not in self.json_dict:
-            self.json_dict.update({array_name: []})
-
-        # Create empty array/list if value is empty
-        if self.json_dict[array_name] is None:
-            self.json_dict[array_name] = []
+        # Create empty list if value is empty
+        if self._json_dict[list_name] is None:
+            self._json_dict[list_name] = []
 
         # Add given data to dict and write to JSON file
-        self.json_dict[array_name].insert(array_index, value)    # type: ignore
-        self.save_json_file()
+        lst = self._json_dict[list_name]
+        if isinstance(lst, list):
+            cast(list[object], lst).insert(list_index, value)
+            self._json_dict[list_name] = lst
+            self._save_json_file()
+        else:
+            raise TypeError(f'Value of "{list_name}" is not a list.')
 
-    def edit_array_item(self, array_name: str, array_index: int,
-                        dict_key: str, value: str | int | float | list | dict) \
-            -> None:
+    def edit_list_item(
+        self, list_name: str, list_index: int, dict_key: str, value: object
+    ) -> None:
+        """ Changes the value of a list item."""
+        lst = cast(list[dict[str, object]], self._json_dict[list_name])
+        lst[list_index][dict_key] = value
+        self._json_dict[list_name] = lst
+        self._save_json_file()
+
+    def delete_list_item(self, list_name: str, list_index: int) -> None:
+        """Deletes an element of a list."""
+        lst = cast(list[dict[str, object]], self._json_dict[list_name])
+        del lst[list_index]
+        self._save_json_file()
+
+    def move_list_item(
+        self, list_name: str, list_index: int, list_index_new: int
+    ) -> None:
         """
-        Changes the value of an array item.
-
-        Parameters
-        ----------
-        array_name : str
-            Name of the array/list.
-        array_index : int
-            Index of the array/list element.
-        dict_key : str
-            The key of the dictionary.
-        value : str or int or float or list or dict
-            Value of the array/list element = dictionary.
+        Moves a list item by deleting and re-inserting it at a new position.
         """
-        self.json_dict[array_name][array_index][dict_key] = value  # type: ignore
-        self.save_json_file()
-
-    def delete_array_item(self, array_name: str, array_index: int) -> None:
-        """
-        Deletes an element of an array/list.
-
-        Parameters
-        ----------
-        array_name : str
-            Name of the array/list.
-        array_index : int
-            Index of the array/list element.
-        """
-        del self.json_dict[array_name][array_index]  # type: ignore
-        self.save_json_file()
-
-    def move_array_item(self, array_name: str, array_index: int,
-                        array_index_new: int) -> None:
-        """
-        Moves an array/list element by deleting and re-inserting it at a new position.
-
-        Parameters
-        ----------
-        array_name : str
-            Name of the array/list.
-        array_index : int
-            Index of the array/list element.
-        array_index_new : int
-            Index of the new array/list element.
-        """
-        # Save value of the element
-        array_element = self.json_dict[array_name][array_index]  # type: ignore
-
-        # Delete element
-        del self.json_dict[array_name][array_index]  # type: ignore
-
-        # Insert element at new position
-        self.json_dict[array_name].insert(array_index_new, array_element)  # type: ignore
-        self.save_json_file()
-
+        lst = cast(list[object], self._json_dict[list_name])
+        list_element: object = lst[list_index]
+        del lst[list_index]
+        lst.insert(list_index_new, list_element)
+        self._json_dict[list_name] = lst
+        self._save_json_file()

@@ -46,5 +46,5 @@ def print_custom_panel(formatted_message: str, panel_color: str) -> None:
 
 def clear_lines(count: int) -> None:
     """Move cursor up `count` lines and clear everything below."""
-    sys.stdout.write(f'\033[{count}A\033[0J')
-    sys.stdout.flush()
+    _ = sys.stdout.write(f'\033[{count}A\033[0J')
+    _ = sys.stdout.flush()
