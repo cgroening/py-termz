@@ -1,9 +1,23 @@
+"""
+termz.cli.output
+================
+
+Provides utility functions for styled CLI output using Rich.
+
+Includes helpers for printing color-coded panels (error, warning, success and
+info) and a function to clear previously printed lines from the terminal.
+"""
 import sys
 from rich.console import Console
 from rich.panel import Panel
 
 
 console = Console()
+
+
+def get_console() -> Console:
+    """Returns the Rich Console instance."""
+    return console
 
 
 def print_error(message: str) -> None:

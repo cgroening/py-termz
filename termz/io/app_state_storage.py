@@ -18,7 +18,6 @@ Features:
   - Moving elements within a list (`move_list_item`)
 - Ensures data persistence by saving changes to the JSON file automatically.
 - Manages file creation and error handling for missing or corrupted JSON files.
-
 """
 import sys
 import json

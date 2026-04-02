@@ -5,7 +5,7 @@ termz.io.database
 Lightweight database management module for handling SQLite databases with ease.
 
 This module provides an abstraction layer for SQLite databases, simplifying
-common database operations such as fetching, inserting, updating, and deleting
+common database operations such as fetching, inserting, updating and deleting
 records. It includes classes for defining query conditions, sorting orders
 and combination operators to facilitate SQL query construction.
 
@@ -19,7 +19,6 @@ Features:
 - Ensures proper connection closure on object deletion
 
 Ideal for applications requiring a simple, efficient database interaction layer.
-
 """
 from __future__ import annotations
 from dataclasses import dataclass

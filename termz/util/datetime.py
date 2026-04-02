@@ -20,7 +20,9 @@ formatting ("YYYY-MM-DD") for flexibility in various locales.
 from datetime import datetime, time
 
 
-def timestamp_to_date(timestamp: int | None, english_format: bool = False) -> str:
+def timestamp_to_date(
+    timestamp: int | None, english_format: bool = False
+) -> str:
     """
     Converts a UNIX timestamp into a date string.
 
@@ -56,7 +58,8 @@ def timestamp_to_date(timestamp: int | None, english_format: bool = False) -> st
 def date_to_timestamp(date_str: str, english_format: bool = False) \
 -> int | None:
     """
-    Converts a date in the format "DD.MM.YYYY" or "YYYY-MM-DD" into a UNIX timestamp.
+    Converts a date in the format "DD.MM.YYYY" or "YYYY-MM-DD" into
+    a UNIX timestamp.
 
     Parameters
     ----------

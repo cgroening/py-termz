@@ -15,6 +15,7 @@ manipulations. It is designed to simplify text file handling in Python projects
 by providing an easy-to-use API.
 
 Features:
+
 - Read content from text files.
 - Write content to text files.
 - Append data to existing files.
@@ -24,7 +25,6 @@ Features:
 This module is particularly useful for applications requiring efficient and
 straightforward text file operations, such as logging systems, data processing
 and configuration management.
-
 """
 from dataclasses import dataclass
 import os
@@ -71,11 +71,14 @@ class File:
     """
 
     @staticmethod
-    def folder_content(path: str, extfilter: str | None = None,
-                       withsubfolders: bool = False, level: int = 0) \
-            -> dict[str, FolderItem]:
+    def folder_content(
+        path: str, extfilter: str | None = None,
+        withsubfolders: bool = False,
+        level: int = 0
+    ) -> dict[str, FolderItem]:
         """
-        Retrieves the contents of a given folder, optionally including subfolders.
+        Retrieves the contents of a given folder, optionally including
+        subfolders.
 
         Parameters
         ----------

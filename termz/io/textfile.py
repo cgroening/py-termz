@@ -14,18 +14,19 @@ approach for handling text files. It ensures proper file handling using context
 managers and includes essential methods to perform common file operations.
 
 Features:
+
 - Read the entire content of a text file as a string.
 - Read a text file line by line, returning a list of lines.
 - Write new content to a text file, replacing any existing content.
 - Uses UTF-8 encoding for compatibility with various text formats.
 - Ensures proper file handling by automatically closing files after operations.
-
 """
 
 
 class Textfile:
     """
-    A utility class for handling text file operations such as reading and writing.
+    A utility class for handling text file operations such as reading
+    and writing.
 
     This class provides methods to read the entire content of a text file,
     read individual lines, and write new content to the file. It is designed for
