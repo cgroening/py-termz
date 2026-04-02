@@ -1,4 +1,4 @@
 from .app_state_storage import *
-from .Database import *
-from .File import *
-from .Textfile import *
+from .database import *
+from .file import *
+from .textfile import *
