@@ -1,30 +1,3 @@
-"""
-termz.util.singleton
-====================
-
-Provides a metaclass implementation of the Singleton design pattern.
-
-This module defines a `Singleton` metaclass, which ensures that a class has only
-one instance throughout the lifetime of the application.
-
-Usage example:
-
-```
-class SomeClass(metaclass=Singleton):
-    def __init__(self):
-        ...
-```
-
-Once defined with this metaclass, all instantiations of `SomeClass` will return
-the same object.
-
-Features:
-
-- Enforces a single instance per class.
-- Accessible instance via the `instance` property.
-
-"""
-
 class Singleton(type):
     """
     Metaclass for the singleton pattern.
@@ -45,10 +18,10 @@ class Singleton(type):
 
     _instance = None
 
-    def __call__(cls, *args, **kwargs):
+    def __call__(cls, *args, **kwargs):  # pyright: ignore[reportAny, reportUnknownParameterType, reportMissingParameterType]
         if cls._instance is None:
-            cls._instance = super(Singleton, cls).__call__(*args, **kwargs)
-        return cls._instance
+            cls._instance = super(Singleton, cls).__call__(*args, **kwargs)  # pyright: ignore[reportAny]
+        return cls._instance  # pyright: ignore[reportAny]
 
     @property
     def instance(self):

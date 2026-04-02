@@ -1,7 +1,7 @@
 
 def next_index(
     current_index: int,
-    length: int,
+    max_index: int,
     direction: int = 1,
     loop_behavior: bool = True
 ) -> int:
@@ -13,7 +13,7 @@ def next_index(
     ----------
     current_index : int
         The current index in the list.
-    length : int
+    max_index : int
         The length of the list.
     direction : int, optional
         The direction of movement
@@ -54,9 +54,9 @@ def next_index(
     1
     """
     if loop_behavior:
-        return (current_index + direction) % length
+        return (current_index + direction) % max_index
 
     if direction < 0:
         return max(current_index - 1, 0)
     else:
-        return min(current_index + 1, length - 1)
+        return min(current_index + 1, max_index - 1)
