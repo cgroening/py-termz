@@ -28,3 +28,19 @@ classifiers = [
 [project.urls]
 Homepage = "https://github.com/cgroening/py-termz"
 Repository = "https://github.com/cgroening/py-termz"
+
+[tool.pyright]
+exclude = [
+    "**/.*",
+    "**/__pycache__",
+    "**/*.pyc",
+    ".venv",
+    "venv",
+    "**/node_modules",
+]
+reportUnannotatedClassAttribute = "none"
+reportUnusedCallResult = "none"
+reportCallInDefaultInitializer = "none"
+reportImplicitOverride = "none"
+reportMissingTypeStubs = "none"
+reportImplicitStringConcatenation = "none"
