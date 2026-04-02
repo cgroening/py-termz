@@ -43,7 +43,7 @@ def linewrap(text: str, linewidth: int):
         if len(text) > linewidth and text[maxcutpos-1] != ' ' \
            and text[maxcutpos] != ' ':
             # Position of the last whitespace
-            cutpos = max(String.charpos(text[0:maxcutpos-1], ' '))
+            cutpos = max(charpos(text[0:maxcutpos-1], ' '))
         else:
             cutpos = maxcutpos
 

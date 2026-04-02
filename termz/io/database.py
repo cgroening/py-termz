@@ -26,7 +26,7 @@ import sqlite3
 import copy
 from enum import Enum
 from typing import Any
-from termz.util.string import String
+from termz.util.string import linewrap
 
 
 class SQLComparisonOperator(Enum):
