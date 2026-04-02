@@ -38,16 +38,20 @@ class AppStateStorage(metaclass=Singleton):
 
     Attributes
     ----------
-    json_file : Path or str or None
+    _json_file : Path or str or None
         Path to the JSON file.
-    json_dict : dict[str, object]
+    _json_dict : dict[str, object]
         Content of the JSON file as a dictionary.
     """
-    json_file_path: Path | str | None
+    _json_file_path: Path | str | None
     _json_dict: dict[str, object] = {}
 
 
-    def __init__(self, cfg_file: Path | str | None = None) -> None:
+    def __init__(
+        self,
+        package_name: str | None = None,
+        state_file_path: Path | str | None = None
+    ) -> None:
         """
         Opens the JSON file and stores the key-value pairs in `self.json_dict`.
 
@@ -56,9 +60,15 @@ class AppStateStorage(metaclass=Singleton):
         Exception
             If no JSON file is given and the class instance is None.
         """
-        if AppStateStorage.instance is None and cfg_file is None:
-            raise Exception('No JSON file given.')
-        self.json_file_path = cfg_file
+        if state_file_path is None and package_name is not None:
+            state_dir = Path.home() / ".local" / "state" / package_name
+            state_dir.mkdir(parents=True, exist_ok=True)
+            state_file_path = state_dir / "state.json"
+        elif state_file_path is None and AppStateStorage.instance is None:
+            raise Exception(
+                'Either state_file_path or package_name must be given.'
+            )
+        self._json_file_path = state_file_path
         self._read_json_file()
 
     def _read_json_file(self) -> None:
@@ -72,17 +82,17 @@ class AppStateStorage(metaclass=Singleton):
         json.JSONDecodeError
             If the JSON file contains invalid JSON.
         """
-        if self.json_file_path is None:
+        if self._json_file_path is None:
             raise Exception('No JSON file given.')
-        abs_path = os.path.abspath(self.json_file_path)
+        abs_path = os.path.abspath(self._json_file_path)
 
         try:
-            with open(self.json_file_path, encoding='utf-8') as file:
+            with open(self._json_file_path, encoding='utf-8') as file:
                 self._json_dict = json.load(file)
         except FileNotFoundError:
             # File not found -> try to create a new one
             try:
-                with open(self.json_file_path, 'w') as file:
+                with open(self._json_file_path, 'w') as file:
                     _ = file.write('{}')
             except FileNotFoundError:
                 print(f'ERROR: Could not find or create "{abs_path}".')
@@ -93,12 +103,12 @@ class AppStateStorage(metaclass=Singleton):
 
     def _save_json_file(self) -> None:
         """Stores the content of self.json_dict in the JSON file."""
-        if self.json_file_path is None:
+        if self._json_file_path is None:
             raise Exception('No JSON file given.')
-        abs_path = os.path.abspath(self.json_file_path)
+        abs_path = os.path.abspath(self._json_file_path)
 
         try:
-            with open(self.json_file_path, 'w', encoding='utf-8') as file:
+            with open(self._json_file_path, 'w', encoding='utf-8') as file:
                 json.dump(self._json_dict, file, indent=4)
         except IOError:
             print(f'Fehler: File {abs_path} could not be written.')
