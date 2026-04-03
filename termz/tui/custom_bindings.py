@@ -5,69 +5,92 @@ termz.tui.custom_bindings
 Module for managing custom key bindings in Textual applications using
 YAML configuration.
 
-This module defines a class for managing custom keyboard bindings in
-a Textual application.
-The `CustomBindings` class loads key binding definitions from a YAML file,
-organizes them by logical groups (e.g., `_global`, `editor`, `viewer`)
-and exposes them as Textual `Binding` objects.
+This module defines the class `CustomBindings` for managing custom keyboard
+bindings in a Textual application. It loads key binding definitions from
+a YAML file and exposes them as Textual `Binding` objects.
 
-Each binding definition in the YAML file includes attributes such as `key`,
-`action`, `description` and optional metadata like `tooltip`, `priority`, `id`,
-`show`, and `system`. The class processes this information to support
-context-sensitive key mappings, display hints, and advanced input behavior.
+The binding group `_global` is reserved for global bindings that are always
+shown, group names with the suffix `_tab` or `_screen` are reserved for bindings
+that are only shown when the corresponding tab or screen is active.
 
-Groups whose name starts with `_global` are treated as global bindings and
-are always shown regardless of the currently active tab or view.
+YAML structure
+--------------
+The YAML file is a mapping of group names to lists of binding definitions.
+Each binding supports the following fields:
 
-The module also supports automatic generation of copy/paste bindings and
-offers helper methods to determine if actions should be visible or active based
-on the current application context.
+  key         (required) Key to bind, e.g. `q`, `f1`, `ctrl+s`
+  action      (required) Action name (see group-specific prefixing below)
+  description (required) Short label shown in the footer
+  tooltip               Longer description shown on hover
+  key_display           Override how the key is rendered in the footer
+  row                   Footer row index (0-based, default: 0)
+  priority              bool – show binding even when a widget captures input
+  show                  bool – whether to show in the footer (default: true)
+  id                    Optional binding ID
+  system                bool – mark as a system binding
 
-Intended for use in modular or tabbed interfaces, this system helps keep key
-binding logic centralized and configurable without hard-coding values into
-application logic.
+Group naming rules
+------------------
+`_global`
+    Bindings that are always visible. The action is prefixed with `global_`,
+    e.g. `action: quit` → `global_quit`. When included in a Screen's
+    `BINDINGS` via `get_bindings(for_screen=True)`, these actions are
+    automatically prefixed with `app.` so Textual dispatches them on the App.
+
+`<name>_tab`
+    Tab-specific bindings, shown only when that tab is active. The action is
+    prefixed with the group name, e.g. group `tasks_tab` + `action: add`
+    → `tasks_tab_add`. Use `check_action` with the active tab name as
+    `active_group` to control visibility.
+
+`_screen_<name>`
+    Screen-specific bindings. The action is used as-is (no prefix), so it maps
+    directly to an `action_<name>` method on the Screen.
+
+Example
+-------
+.. code-block:: yaml
+
+    # Always shown (action = global_<action>)
+    _global:
+      - key: q
+        action: quit
+        description: Quit
+        tooltip: Exit the application
+        priority: true
+        row: 1
+
+    # Shown only when "tasks_tab" is active (action = tasks_tab_<action>)
+    tasks_tab:
+      - key: a
+        action: add_task
+        description: Add
+        tooltip: Add a new task
+        row: 0
+      - key: d
+        action: mark_done
+        description: Done
+        tooltip: Mark the selected task as done
+        row: 0
+
+    # Shown only on AddScreen (action used as-is)
+    _screen_add:
+      - key: escape
+        action: cancel
+        description: Cancel
+        tooltip: Cancel and close
+        row: 0
 """
 import re
 import yaml
-
-from textual.app import App
 from textual.binding import Binding, BindingType
-from textual.widget import Widget
-from textual.widgets import Input, TextArea
 
 
 class CustomBindings():
     """
     Singleton class to manage custom key bindings loaded from a YAML file for
-    use in a Textual application.
-
-    The YAML file is structured as a dictionary of key binding groups. Each key
-    in the dictionary represents a group (e.g., "_global", "counter",
-    "another"). Its value is a list of key binding definitions.
-    Each binding is described by fields like `key`, `action`, `description`,
-    `tooltip` and optional attributes such as `show`, `priority`, `id`
-    and `system`.
-
-    The class reads this YAML file and converts each binding entry into
-    a `Binding` instance from the Textual framework. These instances are stored
-    in the `bindings_dict`, grouped by their group name.
-
-    The `get_bindings()` method returns all bindings as a single list, sorted
-    by key (e.g., f1, f2, ..., f12), and is typically used to populate
-    the `BINDINGS` property of a Textual app.
-
-    The `action_to_groups` dictionary maps each action names to the group(s) it
-    belongs to. This enables logic to determine which group a given action is
-    part of.
-
-    The list `global_actions` holds all actions from groups whose name starts
-    with `_global`. These are always shown, regardless of the currently active
-    tab or view.
-
-    The `action_to_groups` and `global_actions` structures are intended to be
-    used within the `check_action()` method to determine whether a key binding
-    should be displayed, depending on the currently selected tab or context in
-    the app.
+    use in a Textual application. See module docstring for details on
+    YAML structure and usage.
 
     Attributes
     ----------
@@ -82,53 +105,41 @@ class CustomBindings():
         Processed key bindings grouped by their group name.
     action_to_groups : dict[str, list[str]]
         Maps actions to the groups they belong to.
+    action_row_map : dict[str, int]
+        Maps actions to their specified footer row index.
     global_actions : list[str]
         List of actions that are always shown globally.
     """
-    yaml_file_path: str
-    sort_alphabetically: bool = False
-    bindings_dict_raw: dict[str, list[dict[str, str]]]
-    bindings_dict: dict[str, list[Binding]] = {}
-    action_to_groups: dict[str, list[str]] = {}
-    action_row_map: dict[str, int] = {}
-    global_actions: list[str] = []
+    _yaml_file_path: str
+    _sort_alphabetically: bool = False
+    _bindings_dict_raw: dict[str, list[dict[str, str]]]
+    _bindings_dict: dict[str, list[Binding]] = {}
+    _action_to_groups: dict[str, list[str]] = {}
+    _action_row_map: dict[str, int] = {}
+    _global_actions: list[str] = []
 
 
     def __init__(
-        self, yaml_file: str,
-        sort_alphabetically: bool = False, with_copy_paste_keys: bool = False
+        self,
+        yaml_file: str,
+        sort_alphabetically: bool = False,
     ) -> None:
         """
         Reads the YAML file and processes the bindings into a structured format.
-
-        Parameters
-        ----------
-        yaml_file : str
-            Path to the YAML file containing key bindings.
-        sort_alphabetically : bool, optional
-            Whether to sort bindings alphabetically by key.
-            If false, they are sorted in the order they appear in
-            the YAML file.
-        with_copy_paste_keys : bool, optional
-            Whether to add copy/paste key bindings
-            (F1-F4) to the global group.
         """
-        self.yaml_file_path = yaml_file
-        self.sort_alphabetically = sort_alphabetically
-        self.read_yaml_file()
-        self.process_bindings()
+        self._yaml_file_path = yaml_file
+        self._sort_alphabetically = sort_alphabetically
+        self._read_yaml_file()
+        self._process_bindings()
 
-        if with_copy_paste_keys:
-            self.add_copy_paste_bindings()
-
-    def read_yaml_file(self):
+    def _read_yaml_file(self):
         """
         Loads the binding definitions from the YAML file into a dictionary.
         """
-        with open(self.yaml_file_path, 'r', encoding='utf-8') as file:
-            self.bindings_dict_raw = yaml.safe_load(file)
+        with open(self._yaml_file_path, 'r', encoding='utf-8') as file:
+            self._bindings_dict_raw = yaml.safe_load(file)
 
-    def process_bindings(self):
+    def _process_bindings(self):
         """
         Processes the raw data from the YAML file into a structured format
         suitable for use in the Textual application. It converts each binding
@@ -137,23 +148,23 @@ class CustomBindings():
         global actions in `global_actions`.
         """
         # Loop groups
-        for group, bindings in self.bindings_dict_raw.items():
-            if group not in self.bindings_dict:
-                self.bindings_dict[group] = []
+        for group, bindings in self._bindings_dict_raw.items():
+            if group not in self._bindings_dict:
+                self._bindings_dict[group] = []
 
             # Loop bindings
             for binding in bindings:
-                key         = self.parse_key(binding.get('key'))
-                action      = self.parse_action(binding.get('action'), group)
-                description = self.parse_description(binding.get('description'))
-                show        = self.parse_show(binding.get('show'))
-                key_display = self.parse_key_display(
+                key         = self._parse_key(binding.get('key'))
+                action      = self._parse_action(binding.get('action'), group)
+                description = self._parse_description(binding.get('description'))
+                show        = self._parse_show(binding.get('show'))
+                key_display = self._parse_key_display(
                                   key, binding.get('key_display'), group
                               )
-                priority    = self.parse_priority(binding.get('priority'))
-                tooltip     = self.parse_tooltip(binding.get('tooltip'))
-                id          = self.parse_id(binding.get('id'))
-                system      = self.parse_system(binding.get('system'))
+                priority    = self._parse_priority(binding.get('priority'))
+                tooltip     = self._parse_tooltip(binding.get('tooltip'))
+                id          = self._parse_id(binding.get('id'))
+                system      = self._parse_system(binding.get('system'))
 
                 # Skip if any required field is missing
                 if key is None or action is None or description is None:
@@ -170,80 +181,33 @@ class CustomBindings():
                     id         =id,
                     system     =system
                 )
-                self.bindings_dict[group].append(binding_instance)
+                self._bindings_dict[group].append(binding_instance)
 
                 # Add action to action_to_groups mapping
-                if action not in self.action_to_groups:
-                    self.action_to_groups[action] = [group]
+                if action not in self._action_to_groups:
+                    self._action_to_groups[action] = [group]
                 else:
-                    self.action_to_groups[action].append(group)
+                    self._action_to_groups[action].append(group)
 
                 # Store row for this action
-                self.action_row_map[action] = int(binding.get('row', 0))
+                self._action_row_map[action] = int(binding.get('row', 0))
 
                 # Add action to global actions if applicable
                 if group.startswith('_global'):
-                    self.global_actions.append(action)
+                    self._global_actions.append(action)
 
         # logging.debug(f'Bindings: {pprint.pformat(self.bindings_dict)}')
-
-    def add_copy_paste_bindings(self):
-        """
-        Adds copy and paste key bindings to the global group.
-        """
-        # Define bindings
-        copy_val_binding = Binding(
-            key='f1',
-            action='global_copy_widget_value_to_clipboard',
-            description='CpyVal',
-            key_display='*F1',
-            tooltip='Copy widget value to clipboard',
-        )
-        copy_sel_binding = Binding(
-            key='f2',
-            action='global_copy_selection_to_clipboard',
-            description='CpySel',
-            key_display='*F2',
-            tooltip='Copy selected text to clipboard',
-        )
-        paste_binding = Binding(
-            key='f3',
-            action='global_paste_from_clipboard',
-            description='Paste',
-            key_display='*F3',
-            tooltip='Paste text from clipboard',
-        )
-        replace_binding = Binding(
-            key='f4',
-            action='global_replace_widget_value_from_clipboard',
-            description='Replace',
-            key_display='*F4',
-            tooltip='Replace the widget value with the text from the clipboard',
-        )
-        copy_paste_bindings = [copy_val_binding, copy_sel_binding,
-                               paste_binding, replace_binding]
-
-        # Add copy and paste bindings to the global group
-        if '_global' not in self.bindings_dict:
-            self.bindings_dict['_global'] = []
-        self.bindings_dict['_global'].extend(copy_paste_bindings)
-
-        # Update action_to_groups and global_actions
-        for binding in copy_paste_bindings:
-            if binding.action not in self.action_to_groups:
-                self.action_to_groups[binding.action] = ['_global']
-            self.global_actions.append(binding.action)
 
     def get_row_map(
         self, for_screen: bool = False, screen_name: str | None = None
     ) -> dict[str, int]:
         """
-        Returns a row map for use with ``MultiLineFooter(auto_wrap=False)``,
-        using the ``row`` values defined in the YAML file.
+        Returns a row map for use with `MultiLineFooter(auto_wrap=False)`,
+        using the `row` values defined in the YAML file.
 
-        When ``for_screen=True`` or ``screen_name`` is given, global action
-        keys are prefixed with ``app.`` to match the binding actions produced
-        by ``get_bindings(for_screen=True)``.
+        When `for_screen=True` or `screen_name` is given, global action
+        keys are prefixed with `app.` to match the binding actions produced
+        by `get_bindings(for_screen=True)`.
 
         Returns
         -------
@@ -252,8 +216,8 @@ class CustomBindings():
         """
         use_app_prefix = for_screen or bool(screen_name)
         row_map: dict[str, int] = {}
-        for action, row in self.action_row_map.items():
-            key = f'app.{action}' if use_app_prefix and action in self.global_actions else action
+        for action, row in self._action_row_map.items():
+            key = f'app.{action}' if use_app_prefix and action in self._global_actions else action
             row_map[key] = row
         return row_map
 
@@ -290,19 +254,19 @@ class CustomBindings():
             return binding.key.lower()
 
         # Sort each group of bindings by their key
-        if self.sort_alphabetically:
-            for group, bindings in self.bindings_dict.items():
-                self.bindings_dict[group] = sorted(bindings, key=get_sort_key)
+        if self._sort_alphabetically:
+            for group, bindings in self._bindings_dict.items():
+                self._bindings_dict[group] = sorted(bindings, key=get_sort_key)
 
         # Collect global bindings (non-destructive)
-        global_groups = [g for g in self.bindings_dict if g.startswith('_global')]
+        global_groups = [g for g in self._bindings_dict if g.startswith('_global')]
         global_bindings: list[BindingType] = []
         for g in global_groups:
-            global_bindings.extend(self.bindings_dict.get(g, []))
+            global_bindings.extend(self._bindings_dict.get(g, []))
 
         # Combine all bindings into a single list - excluding global and screen ones
         bindings_list: list[BindingType] = []
-        for group, bindings in self.bindings_dict.items():
+        for group, bindings in self._bindings_dict.items():
             # Always skip global and screen groups in the main loop
             if group.startswith('_global') or group.startswith('_screen_'):
                 continue
@@ -319,7 +283,7 @@ class CustomBindings():
         # Append screen-specific bindings when screen_name is given
         if screen_name:
             screen_group = f'_screen_{screen_name.lower()}'
-            bindings_list.extend(self.bindings_dict.get(screen_group, []))
+            bindings_list.extend(self._bindings_dict.get(screen_group, []))
 
         # Append global bindings, prefixed with 'app.' for screen context
         if screen_name or for_screen:
@@ -335,7 +299,7 @@ class CustomBindings():
                     id=b.id,
                     system=b.system,
                 )
-                for b in global_bindings
+                for b in global_bindings if isinstance(b, Binding)
             ]
         bindings_list.extend(global_bindings)
 
@@ -344,143 +308,11 @@ class CustomBindings():
 
         return bindings_list
 
-    def handle_copy_widget_value_to_clipboard(self, app: App[object]) -> None:
-        """
-        Copies value of the currently focused input widget to the clipboard.
-
-        Parameters
-        ----------
-        app : App
-            The Textual application instance.
-        """
-        focused_widget = app.focused
-
-        if focused_widget is None:
-            return
-
-        value: str = getattr(focused_widget, 'value', None) \
-                     or getattr(focused_widget, 'text', '')
-        if not value:
-            return
-
-        app.copy_to_clipboard(value)
-        app.notify('Value copied to clipboard!')
-
-    def handle_copy_selection_to_clipboard_action(self, app: App[object]):
-        """
-        Copies the selected text from the currently focused input widget to
-        the clipboard.
-
-        Parameters
-        ----------
-        app : App
-            The Textual application instance.
-        """
-        focused_widget: Widget | None = app.focused
-
-        if focused_widget is None:
-            return
-
-        selected_text: str = getattr(focused_widget, 'selected_text', '')
-        if selected_text:
-            app.copy_to_clipboard(selected_text)
-
-        app.notify('Selection copied to clipboard!')
-
-    def handle_paste_from_clipboard(self, app: App[object], replace: bool = False) \
-    -> None:
-        """
-        Pastes the text from the clipboard to the currently focused input
-        widget at cursor position.
-
-        Parameters
-        ----------
-        app : App
-            The Textual application instance.
-        replace : bool, optional
-            If True, replaces the current value with the
-            clipboard text.
-            If False, inserts the clipboard text at the
-            cursor position.
-        """
-        # Check if a widget is focused
-        focused_widget: Widget | None = app.focused
-
-        if not focused_widget:
-            app.notify('No widget focused.', severity='warning')
-            return
-
-        # Check if clipboard is empty
-        clipboard_text = app.clipboard
-        if not clipboard_text:
-            app.notify('Clipboard is empty.', severity='warning')
-            return
-
-        # Paste into Input/TextArea
-        if isinstance(focused_widget, Input):
-            self.paste_into_input(app, focused_widget, clipboard_text, replace)
-        elif isinstance(focused_widget, TextArea):
-            self.paste_into_textarea(app, focused_widget, clipboard_text,
-                                      replace)
-        else:
-            app.notify('Focused widget does not support pasting text.',
-                       severity='warning')
-
-    def paste_into_input(
-        self, app: App[object], input: Input, text: str, replace: bool
-    ) -> None:
-        """
-        Pastes the given text into the input widget at the cursor position.
-
-        Parameters
-        ----------
-        app : App
-            The Textual application instance.
-        input : Input
-            The Input widget where the text will be pasted.
-        text : str
-            The text to paste.
-        replace : bool
-            If True, replaces the current value with the text.
-            If False, inserts the text at the cursor position.
-        """
-        if replace:
-            input.value = text
-        else:
-            cursor_pos = input.cursor_position or 0
-            input.insert(text, cursor_pos)
-            input.cursor_position = cursor_pos + len(text)
-
-        app.notify('Text pasted into input field!')
-
-    def paste_into_textarea(self, app: App[object], textarea: TextArea, text: str,
-                            replace: bool) -> None:
-        """
-        Pastes the given text into the textarea at the cursor position.
-
-        Parameters
-        ----------
-        app : App
-            The Textual application instance.
-        textarea : TextArea
-            The TextArea widget where the text will be pasted.
-        text : str
-            The text to paste.
-        replace : bool
-            If True, replaces the current value with the text.
-            If False, inserts the text at the cursor position.
-        """
-        if replace:
-            textarea.text = text
-        else:
-            cursor_pos: tuple[int, int] = textarea.cursor_location or (0, 0)
-            textarea.insert(text, cursor_pos)
-            textarea.cursor_location = (cursor_pos[0], cursor_pos[1]+len(text))
-
-        app.notify('Text pasted into text area!')
-
-    def handle_check_action(self, action: str, _parameters: tuple[object, ...],
-                            active_group: str) -> bool | None:
+    def handle_check_action(
+        self, action: str,
+        _parameters: tuple[object, ...],
+        active_group: str
+    ) -> bool | None:
         """
         Checks if a given action should be displayed based on the current
         active group.
@@ -502,78 +334,46 @@ class CustomBindings():
             True if the action should be displayed, False otherwise.
         """
         # Ignore actions that are not defined in custom bindings
-        if not self.is_custom_action(action, active_group):
+        if not self._is_custom_action(action, active_group):
             return True
 
         # Global actions are always shown
-        if self.is_global_key(action):
+        if self._is_global_key(action):
             return True
 
         # Check if the action belongs to the current tab/group
         # logging.debug(
-        #         f'Checking action "{action}" for active group "{active_group}"'
+        #     f'Checking action "{action}" for active group "{active_group}"'
         # )
-        if active_group in self.action_to_groups[action]:
+        if active_group in self._action_to_groups[action]:
             return True
 
         return False
 
-    def is_global_key(self, action: str) -> bool:
+    def _is_global_key(self, action: str) -> bool:
+        """Checks if the given action belongs to a global key binding."""
+        return action in self._global_actions
+
+    def _is_custom_action(self, action: str, _group: str) -> bool:
         """
-        Checks if the given action belongs to a global key binding.
-
-        Parameters
-        ----------
-        action : str
-            The action to check.
-
-        Returns
-        -------
-        bool
-            True if the action is global, False otherwise.
+        Returns true if the given action is a custom action defined in
+        the bindings.
         """
-        return action in self.global_actions
+        return action in self._action_to_groups
 
-    def is_custom_action(self, action: str, _group: str) -> bool:
-        """
-        Checks if the given action is a custom action defined in the bindings.
+    def _action_belongs_to_group(self, action: str, group: str) -> bool:
+        """Returns true if the given action belongs to the specified group."""
+        return group in self._action_to_groups.get(action, [])
 
-        Parameters
-        ----------
-        action : str
-            The action to check.
-        group : str
-            The group to check against.
-
-        Returns
-        -------
-        bool
-            True if the action is a custom action, False otherwise.
-        """
-        return action in self.action_to_groups
-
-    def action_belongs_to_group(self, action: str, group: str) -> bool:
-        """
-        Checks if the given action belongs to the specified group.
-
-        Parameters
-        ----------
-        action : str
-            The action to check.
-        group : str
-            The group to check against.
-
-        Returns
-        -------
-        bool
-            True if the action belongs to the group, False otherwise.
-        """
-        return group in self.action_to_groups.get(action, [])
-
-    def parse_key(self, key: str | None) -> str | None:
+    def _parse_key(self, key: str | None) -> str | None:
+        """Parses the key field from the YAML binding definition."""
         return key
 
-    def parse_action(self, action: str | None, group: str) -> str | None:
+    def _parse_action(self, action: str | None, group: str) -> str | None:
+        """
+        Parses the action field from the YAML binding definition, applying
+        group-specific prefixing rules.
+        """
         if action is None:
             return None
         else:
@@ -581,17 +381,31 @@ class CustomBindings():
                 return f'{action}'
             return f'{group.lstrip('_')}_{action}'
 
-    def parse_description(self, description: str | None) -> str | None:
+    def _parse_description(self, description: str | None) -> str | None:
+        """Parses the description field from the YAML binding definition."""
         return description
 
-    def parse_show(self, show: str | None) -> bool:
+    def _parse_show(self, show: str | None) -> bool:
+        """
+        Parses the show field from the YAML binding definition, defaulting
+        to True.
+        """
         if show is None:
             return True
         else:
             return bool(show)
 
-    def parse_key_display(self, key: str | None, key_display: str | None,
-                          group: str) -> str | None:
+    def _parse_key_display(
+        self, key: str | None,
+        key_display: str | None,
+        group: str
+    ) -> str | None:
+        """
+        Parses the key_display field from the YAML binding definition. If not
+        provided, it defaults to the key value. For function keys (e.g. "f1"),
+        it formats them as "F1". If the binding belongs to a global group,
+        it prefixes the key display with an asterisk (*).
+        """
         if key is None:
             return None
 
@@ -604,25 +418,39 @@ class CustomBindings():
 
         return key_display
 
-    def parse_priority(self, priority: str | None) -> bool:
+    def _parse_priority(self, priority: str | None) -> bool:
+        """
+        Parses the priority field from the YAML binding definition, defaulting
+        to False.
+        """
         if priority is None:
             return False
         else:
             return bool(priority)
 
-    def parse_tooltip(self, tooltip: str | None) -> str:
+    def _parse_tooltip(self, tooltip: str | None) -> str:
+        """
+        Parses the tooltip field from the YAML binding definition, defaulting to
+        an empty string.
+        """
         if tooltip is None:
             return ''
         else:
             return tooltip
 
-    def parse_id(self, id: str | None) -> str | None:
+    def _parse_id(self, id: str | None) -> str | None:
+        """Parses the id field from the YAML binding definition."""
         if id is None:
             return None
         else:
             return id
 
-    def parse_system(self, system: str | None) -> bool:
+    def _parse_system(self, system: str | None) -> bool:
+        """
+        Parses the system field from the YAML binding definition, defaulting to
+        False. System bindings are marked as such to prevent them from being
+        overridden by widgets that capture input.
+        """
         if system is None:
             return False
         else:
