@@ -90,6 +90,7 @@ class CustomBindings():
     bindings_dict_raw: dict[str, list[dict[str, str]]]
     bindings_dict: dict[str, list[Binding]] = {}
     action_to_groups: dict[str, list[str]] = {}
+    action_row_map: dict[str, int] = {}
     global_actions: list[str] = []
 
 
@@ -177,6 +178,9 @@ class CustomBindings():
                 else:
                     self.action_to_groups[action].append(group)
 
+                # Store row for this action
+                self.action_row_map[action] = int(binding.get('row', 0))
+
                 # Add action to global actions if applicable
                 if group.startswith('_global'):
                     self.global_actions.append(action)
@@ -230,21 +234,27 @@ class CustomBindings():
                 self.action_to_groups[binding.action] = ['_global']
             self.global_actions.append(binding.action)
 
-    def get_row_map(self) -> dict[str, int]:
+    def get_row_map(
+        self, for_screen: bool = False, screen_name: str | None = None
+    ) -> dict[str, int]:
         """
-        Returns a row map for use with ``MultiLineFooter(auto_wrap=False)``.
+        Returns a row map for use with ``MultiLineFooter(auto_wrap=False)``,
+        using the ``row`` values defined in the YAML file.
 
-        Context-specific bindings are placed in row 0, global bindings
-        (those from groups whose name starts with ``_global``) in row 1.
+        When ``for_screen=True`` or ``screen_name`` is given, global action
+        keys are prefixed with ``app.`` to match the binding actions produced
+        by ``get_bindings(for_screen=True)``.
 
         Returns
         -------
         dict[str, int]
             A mapping of action names to row numbers (0-based).
         """
+        use_app_prefix = for_screen or bool(screen_name)
         row_map: dict[str, int] = {}
-        for action in self.action_to_groups:
-            row_map[action] = 1 if action in self.global_actions else 0
+        for action, row in self.action_row_map.items():
+            key = f'app.{action}' if use_app_prefix and action in self.global_actions else action
+            row_map[key] = row
         return row_map
 
     def get_bindings(
