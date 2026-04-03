@@ -6,7 +6,7 @@ Module for managing custom key bindings in Textual applications using
 YAML configuration.
 
 This module defines a class for managing custom keyboard bindings in
-a [Textual](https://github.com/Textualize/textual) application.
+a Textual application.
 The `CustomBindings` class loads key binding definitions from a YAML file,
 organizes them by logical groups (e.g., `_global`, `editor`, `viewer`)
 and exposes them as Textual `Binding` objects.
@@ -15,6 +15,9 @@ Each binding definition in the YAML file includes attributes such as `key`,
 `action`, `description` and optional metadata like `tooltip`, `priority`, `id`,
 `show`, and `system`. The class processes this information to support
 context-sensitive key mappings, display hints, and advanced input behavior.
+
+Groups whose name starts with `_global` are treated as global bindings and
+are always shown regardless of the currently active tab or view.
 
 The module also supports automatic generation of copy/paste bindings and
 offers helper methods to determine if actions should be visible or active based
@@ -39,8 +42,8 @@ class CustomBindings():
     use in a Textual application.
 
     The YAML file is structured as a dictionary of key binding groups. Each key
-    in the dictionary represents a group (e.g., "_global", "_global_always",
-    "counter", "another"). Its value is a list of key binding definitions.
+    in the dictionary represents a group (e.g., "_global", "counter",
+    "another"). Its value is a list of key binding definitions.
     Each binding is described by fields like `key`, `action`, `description`,
     `tooltip` and optional attributes such as `show`, `priority`, `id`
     and `system`.
@@ -57,12 +60,9 @@ class CustomBindings():
     belongs to. This enables logic to determine which group a given action is
     part of.
 
-    The list `globalalways_actions` contains all actions from the group
-    "_globalalways". These are meant to be always shown, regardless of the
-    currently active tab or view.
-
-    The list `global_actions` holds the bindings which will be temporarily
-    switched with the current ones if the escape key is double pressed.
+    The list `global_actions` holds all actions from groups whose name starts
+    with `_global`. These are always shown, regardless of the currently active
+    tab or view.
 
     The `action_to_groups` and `global_actions` structures are intended to be
     used within the `check_action()` method to determine whether a key binding
@@ -116,7 +116,6 @@ class CustomBindings():
         self.sort_alphabetically = sort_alphabetically
         self.read_yaml_file()
         self.process_bindings()
-        self.process_global_always_bindings()
 
         if with_copy_paste_keys:
             self.add_copy_paste_bindings()
@@ -179,31 +178,10 @@ class CustomBindings():
                     self.action_to_groups[action].append(group)
 
                 # Add action to global actions if applicable
-                if group == '_global':
+                if group.startswith('_global'):
                     self.global_actions.append(action)
 
         # logging.debug(f'Bindings: {pprint.pformat(self.bindings_dict)}')
-
-    def process_global_always_bindings(self):
-        """
-        Processes the bindings from the '_global_always' group and adds them
-        to the `action_to_groups` mapping. This ensures that these bindings
-        are always valid and can be used across all groups.
-        """
-        if '_global_always' not in self.bindings_dict:
-            return
-
-        for binding in self.bindings_dict['_global_always']:
-            for group in self.bindings_dict.keys():
-                if group in ['_global', '_global_always']:
-                    continue
-
-                if binding.action not in self.action_to_groups:
-                    self.action_to_groups[binding.action] = []
-
-                self.action_to_groups[binding.action].append(group)
-
-        # logging.debug(pprint.pformat(self.action_to_groups))
 
     def add_copy_paste_bindings(self):
         """
@@ -252,8 +230,26 @@ class CustomBindings():
                 self.action_to_groups[binding.action] = ['_global']
             self.global_actions.append(binding.action)
 
+    def get_row_map(self) -> dict[str, int]:
+        """
+        Returns a row map for use with ``MultiLineFooter(auto_wrap=False)``.
+
+        Context-specific bindings are placed in row 0, global bindings
+        (those from groups whose name starts with ``_global``) in row 1.
+
+        Returns
+        -------
+        dict[str, int]
+            A mapping of action names to row numbers (0-based).
+        """
+        row_map: dict[str, int] = {}
+        for action in self.action_to_groups:
+            row_map[action] = 1 if action in self.global_actions else 0
+        return row_map
+
     def get_bindings(
-        self, tab_name: str | None = None, screen_name: str | None = None
+        self, tab_name: str | None = None, screen_name: str | None = None,
+        for_screen: bool = False
     ) -> list[BindingType]:
         """
         Returns a list (sorted by key if `self.sort_alphabetically` is `True`)
@@ -288,34 +284,50 @@ class CustomBindings():
             for group, bindings in self.bindings_dict.items():
                 self.bindings_dict[group] = sorted(bindings, key=get_sort_key)
 
-        # Pop bindings for global and global_always
-        global_bindings = self.bindings_dict.pop('_global', [])
-        global_always_bindings = self.bindings_dict.pop('_global_always', [])
+        # Collect global bindings (non-destructive)
+        global_groups = [g for g in self.bindings_dict if g.startswith('_global')]
+        global_bindings: list[BindingType] = []
+        for g in global_groups:
+            global_bindings.extend(self.bindings_dict.get(g, []))
 
-        # Combine all bindings into a single list - excluding global ones
+        # Combine all bindings into a single list - excluding global and screen ones
         bindings_list: list[BindingType] = []
         for group, bindings in self.bindings_dict.items():
-            # If a tab name or screen name is given, only include bindings
-            # for that specific tab/screen
+            # Always skip global and screen groups in the main loop
+            if group.startswith('_global') or group.startswith('_screen_'):
+                continue
+            # If a tab name is given, only include bindings for that tab
             if tab_name:
-                # Skip bindings not belonging to the given tab name
                 if group != tab_name.lower():
                     continue
+            # If a screen name is given, skip all tab bindings
             elif screen_name:
-                # Skip bindings not belonging to the given screen name
-                if f'_screen_{screen_name.lower()}' != group:
-                    continue
-            else:
-                if group.startswith('_screen_'):
-                    continue
+                continue
 
             bindings_list.extend(bindings)
 
-        # Re-insert global and global_always bindings
-        # ! Global bindings must be at the end to ensure correct sorting
-        if not screen_name:
-            bindings_list.extend(global_always_bindings)
-            bindings_list.extend(global_bindings)
+        # Append screen-specific bindings when screen_name is given
+        if screen_name:
+            screen_group = f'_screen_{screen_name.lower()}'
+            bindings_list.extend(self.bindings_dict.get(screen_group, []))
+
+        # Append global bindings, prefixed with 'app.' for screen context
+        if screen_name or for_screen:
+            global_bindings = [
+                Binding(
+                    key=b.key,
+                    action=f'app.{b.action}',
+                    description=b.description,
+                    show=b.show,
+                    key_display=b.key_display,
+                    priority=b.priority,
+                    tooltip=b.tooltip,
+                    id=b.id,
+                    system=b.system,
+                )
+                for b in global_bindings
+            ]
+        bindings_list.extend(global_bindings)
 
         # logging.debug(f'All bindings: {pprint.pformat(self.bindings_dict)}')
         # logging.debug(f'Return value: {pprint.pformat(bindings_list)}')
@@ -458,11 +470,10 @@ class CustomBindings():
         app.notify('Text pasted into text area!')
 
     def handle_check_action(self, action: str, _parameters: tuple[object, ...],
-                            active_group: str, show_global_keys: bool = False) \
-    -> bool | None:
+                            active_group: str) -> bool | None:
         """
         Checks if a given action should be displayed based on the current
-        active group and whether to show global keys.
+        active group.
 
         This is meant to be used in the check_action method of a Textual app.
 
@@ -474,26 +485,21 @@ class CustomBindings():
             Parameters for the action (not used).
         active_group : str
             The currently active group or tab.
-        show_global_keys : bool, optional
-            Whether to show only global keys.
 
         Returns
         -------
         bool or None
             True if the action should be displayed, False otherwise.
         """
-        # Show only global keys?
-        if show_global_keys:
-            if self.is_global_key(action):
-                return True
-            else:
-                return False
-
         # Ignore actions that are not defined in custom bindings
         if not self.is_custom_action(action, active_group):
             return True
 
-        # If the action is not global, check if it belongs to the current tab
+        # Global actions are always shown
+        if self.is_global_key(action):
+            return True
+
+        # Check if the action belongs to the current tab/group
         # logging.debug(
         #         f'Checking action "{action}" for active group "{active_group}"'
         # )
@@ -563,7 +569,7 @@ class CustomBindings():
         else:
             if group.startswith('_screen_'):
                 return f'{action}'
-            return f'{group.replace('_', '')}_{action}'
+            return f'{group.lstrip('_')}_{action}'
 
     def parse_description(self, description: str | None) -> str | None:
         return description
@@ -583,8 +589,8 @@ class CustomBindings():
         if match:
             key_display = f'F{int(match.group(2))}'
 
-        if group == '_global':
-            key_display = f'*{key_display}'
+        if group.startswith('_global'):
+            key_display = f'*{key_display or key}'
 
         return key_display
 
