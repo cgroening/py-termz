@@ -177,8 +177,7 @@ class MultiLineFooter(Footer):
             )
         if not grouped:
             return []
-        max_row = max(grouped.keys())
-        return [grouped.get(i, []) for i in range(max_row + 1)]
+        return [grouped[i] for i in sorted(grouped.keys())]
 
     @override
     def compose(self) -> ComposeResult:
