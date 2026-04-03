@@ -9,9 +9,12 @@ This module defines the class `CustomBindings` for managing custom keyboard
 bindings in a Textual application. It loads key binding definitions from
 a YAML file and exposes them as Textual `Binding` objects.
 
-The binding group `_global` is reserved for global bindings that are always
-shown, group names with the suffix `_tab` or `_screen` are reserved for bindings
-that are only shown when the corresponding tab or screen is active.
+Reserved group naming conventions:
+
+- `_global`      Always-visible bindings; action is prefixed `global_`
+- `<name>_tab`   Shown only when that tab is active; action is prefixed with
+                   the full group name, e.g. `tasks_tab_add_task`
+- `<name>_screen` Screen-specific bindings; action is used as-is (no prefix)
 
 YAML structure
 --------------
@@ -74,7 +77,7 @@ Example
         row: 0
 
     # Shown only on AddScreen (action used as-is)
-    _screen_add:
+    add_screen:
       - key: escape
         action: cancel
         description: Cancel
@@ -268,7 +271,7 @@ class CustomBindings():
         bindings_list: list[BindingType] = []
         for group, bindings in self._bindings_dict.items():
             # Always skip global and screen groups in the main loop
-            if group.startswith('_global') or group.startswith('_screen_'):
+            if group.startswith('_global') or group.endswith('_screen'):
                 continue
             # If a tab name is given, only include bindings for that tab
             if tab_name:
@@ -282,7 +285,7 @@ class CustomBindings():
 
         # Append screen-specific bindings when screen_name is given
         if screen_name:
-            screen_group = f'_screen_{screen_name.lower()}'
+            screen_group = f'{screen_name.lower()}_screen'
             bindings_list.extend(self._bindings_dict.get(screen_group, []))
 
         # Append global bindings, prefixed with 'app.' for screen context
@@ -377,7 +380,7 @@ class CustomBindings():
         if action is None:
             return None
         else:
-            if group.startswith('_screen_'):
+            if group.endswith('_screen'):
                 return f'{action}'
             return f'{group.lstrip('_')}_{action}'
 
