@@ -11,7 +11,7 @@ a YAML file and exposes them as Textual `Binding` objects.
 
 Reserved group naming conventions:
 
-- `_global`      Always-visible bindings; action is prefixed `global_`
+- `_global`      Always-visible bindings; action is used as-is (no prefix)
 - `<name>_tab`   Shown only when that tab is active; action is prefixed with
                    the full group name, e.g. `tasks_tab_add_task`
 - `<name>_screen` Screen-specific bindings; action is used as-is (no prefix)
@@ -35,10 +35,10 @@ Each binding supports the following fields:
 Group naming rules
 ------------------
 `_global`
-    Bindings that are always visible. The action is prefixed with `global_`,
-    e.g. `action: quit` → `global_quit`. When included in a Screen's
-    `BINDINGS` via `get_bindings(for_screen=True)`, these actions are
-    automatically prefixed with `app.` so Textual dispatches them on the App.
+    Bindings that are always visible. The action is used as-is (no prefix),
+    e.g. `action: quit` → `quit`. When included in a Screen's `BINDINGS`
+    via `get_bindings(for_screen=True)`, these actions are automatically
+    prefixed with `app.` so Textual dispatches them on the App.
 
 `<name>_tab`
     Tab-specific bindings, shown only when that tab is active. The action is
@@ -54,7 +54,7 @@ Example
 -------
 .. code-block:: yaml
 
-    # Always shown (action = global_<action>)
+    # Always shown (action = <action>, no prefix)
     _global:
       - key: q
         action: quit
@@ -379,10 +379,9 @@ class CustomBindings():
         """
         if action is None:
             return None
-        else:
-            if group.endswith('_screen'):
-                return f'{action}'
-            return f'{group.lstrip('_')}_{action}'
+        if group.startswith('_global') or group.endswith('_screen'):
+            return action
+        return f'{group}_{action}'
 
     def _parse_description(self, description: str | None) -> str | None:
         """Parses the description field from the YAML binding definition."""
