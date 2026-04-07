@@ -405,8 +405,7 @@ class CustomBindings():
         """
         Parses the key_display field from the YAML binding definition. If not
         provided, it defaults to the key value. For function keys (e.g. "f1"),
-        it formats them as "F1". If the binding belongs to a global group,
-        it prefixes the key display with an asterisk (*).
+        it formats them as "F1".
         """
         if key is None:
             return None
@@ -415,8 +414,8 @@ class CustomBindings():
         if match:
             key_display = f'F{int(match.group(2))}'
 
-        if group.startswith('_global'):
-            key_display = f'*{key_display or key}'
+        # if group.startswith('_global'):
+        #     key_display = f'*{key_display or key}'
 
         return key_display
 
