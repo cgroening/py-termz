@@ -134,6 +134,109 @@ col_desc = table.add_column("Description")
 table.flexible_columns = [col_desc]  # This column will stretch to fill space
 ```
 
+### CustomCheckbox
+
+A subclass of Textual's `Checkbox` that shows a `✔` when checked and an empty box when unchecked, instead of the default `X`.
+
+```python
+from termz.tui.custom_widgets.custom_checkbox import CustomCheckbox
+
+yield CustomCheckbox("Enable feature", value=True)
+```
+
+### CustomSelectionList
+
+A subclass of Textual's `SelectionList` whose items show a `✔` when selected and an empty box when unselected, instead of the default `X`.
+
+```python
+from termz.tui.custom_widgets.custom_selection import CustomSelectionList
+
+yield CustomSelectionList(
+    ("Option A", "a"),
+    ("Option B", "b"),
+)
+```
+
+### MultiLineFooter
+
+A drop-in replacement for Textual's built-in `Footer` that supports multiple rows of key bindings. Two modes are available:
+
+- **`auto_wrap=True`** (default) — bindings wrap automatically when the row is full.
+- **`auto_wrap=False`** — bindings are assigned to rows explicitly via `row_map`.
+
+```python
+from termz.tui.custom_widgets.multiline_footer import MultiLineFooter
+
+# Auto-wrap (default)
+yield MultiLineFooter()
+
+# Manual row assignment
+yield MultiLineFooter(
+    auto_wrap=False,
+    row_map={
+        'quit': 0,
+        'save': 0,
+        'toggle_dark': 1,
+        'help': 1,
+    },
+)
+```
+
+### CustomBindings
+
+Loads keyboard bindings from a YAML file and exposes them as Textual `Binding` objects. Supports global bindings, tab-specific bindings, and screen-specific bindings.
+
+**Group naming conventions:**
+
+| Group name | Scope | Action prefix |
+|------------|-------|---------------|
+| `_global` | Always visible | none (used as-is) |
+| `<name>_tab` | Shown when that tab is active | `<name>_tab_` |
+| `<name>_screen` | Shown on that screen | none (used as-is) |
+
+**YAML example (`bindings.yaml`):**
+
+```yaml
+_global:
+  - key: q
+    action: quit
+    description: Quit
+    priority: true
+    row: 1
+
+tasks_tab:
+  - key: a
+    action: add_task
+    description: Add
+    row: 0
+
+add_screen:
+  - key: escape
+    action: cancel
+    description: Cancel
+    row: 0
+```
+
+**Usage:**
+
+```python
+from termz.tui.custom_bindings import CustomBindings
+
+bindings = CustomBindings('bindings.yaml', sort_alphabetically=False)
+
+# In your App or Screen:
+BINDINGS = bindings.get_bindings()                        # all bindings
+BINDINGS = bindings.get_bindings(tab_name='tasks_tab')    # tab-specific + global
+BINDINGS = bindings.get_bindings(screen_name='add')       # screen-specific + global
+
+# Row map for MultiLineFooter(auto_wrap=False):
+row_map = bindings.get_row_map()
+
+# In check_action to hide tab bindings that don't belong to the active tab:
+def check_action(self, action, parameters):
+    return bindings.handle_check_action(action, parameters, active_group=self.active_tab)
+```
+
 ---
 
 ## termz.io — IO Utilities
