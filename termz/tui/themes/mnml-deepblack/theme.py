@@ -12,11 +12,11 @@ TEXTUAL_THEME = Theme(
     panel='#101112',
     boost="#555555",
     success="#50CE23",
-    warning="#E4AC45",
+    warning="#f4e144",
     error="#DF372F",
     dark=True,
     variables={
-        'footer-key-foreground': "#E7E7E7",
+        'footer-key-foreground': "#949494",
         "input-cursor-text-style": "reverse",
     }
 )
