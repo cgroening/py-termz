@@ -5,3 +5,4 @@ from .logger import *
 from .singleton import *
 from .string import *
 from .validation import *
+from .version import *
