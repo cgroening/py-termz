@@ -9,11 +9,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-–
+- `util/version.py`: New utility module to retrieve the package version via `importlib.metadata` with a fallback to `pyproject.toml`
 
 ### Changed
 
 - `CustomBindings`: Global bindings are no longer prefixed with `*`
+- Updated colors of Textual themes `compact-gray` and `mnml-deepblack`
 
 ### Fixed
 
