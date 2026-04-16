@@ -10,6 +10,7 @@ Included Features:
 - `linewrap`: Splits long text into multiple lines, respecting a maximum line
    width and avoiding word breaks when possible.
 - `charpos`: Returns all positions of a given character within a string.
+- `str_with_fixed_width`: Truncates or pads a string to an exact width.
 
 These utilities are useful for simple text formatting tasks, especially when
 preparing console output or working with fixed-width layouts.
@@ -77,3 +78,39 @@ def charpos(text: str, char: str) -> list[int]:
         A list of indices where the character occurs in the text.
     """
     return [pos for pos, c in enumerate(text) if c == char]
+
+
+def str_with_fixed_width(text: str, width: int, align: str = 'left') -> str:
+    """
+    Return a string truncated or padded to exactly `width` characters.
+
+    If the text exceeds the width it is truncated with a trailing ellipsis (…).
+    Supports alignment: 'left', 'right', 'center'.
+
+    Parameters
+    ----------
+    text : str
+        The input text to format.
+    width : int
+        The exact output width in characters.
+    align : str
+        One of 'left', 'right', or 'center'. Defaults to 'left'.
+
+    Returns
+    -------
+    str
+        A string of exactly `width` characters.
+    """
+    if len(text) > width:
+        if align == 'right':
+            return '…' + text[-(width - 1):]
+        return text[:width - 1] + '…'
+
+    if align == 'left':
+        return text.ljust(width)
+    elif align == 'right':
+        return text.rjust(width)
+    elif align == 'center':
+        return text.center(width)
+    else:
+        raise ValueError(f'Invalid alignment: {align}')
